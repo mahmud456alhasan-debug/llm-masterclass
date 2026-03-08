@@ -143,7 +143,7 @@
     .network-svg{width:100%;max-width:300px;height:130px;}
     .tw-out{font-family:var(--font-mono);font-size:1.1rem;color:var(--accent);border-right:2px solid var(--accent);padding-right:4px;white-space:pre;min-height:1.4em;animation:cursorBlink .7s step-end infinite;}
     @keyframes cursorBlink{50%{border-color:transparent;}}
-    .apps-row{display:flex;gap:1.5rem;font-size:2.8rem;flex-wrap:wrap;justify-content:center;}
+    .apps-row{display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;font-size:2.8rem;}
     .slide-controls{display:flex;gap:1rem;align-items:center;margin-top:2rem;flex-wrap:wrap;justify-content:center;}
     .slide-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:10px 20px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;font-family:inherit;}
     .slide-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -303,7 +303,7 @@
   <div class="fade-in">
     <div class="section-label">01 — Foundation</div>
     <h2 class="section-title" data-en="What is a Large Language Model?" data-zh="什么是大型语言模型？">What is a Large Language Model?</h2>
-    <p class="section-desc" data-en="A Large Language Model (LLM) is a type of artificial intelligence trained on massive text data. It learns patterns, grammar, facts, and reasoning by predicting the next token in a sequence — billions of times over." data-zh="大型语言模型（LLM）是一种在海量文本数据上训练的人工智能，通过预测序列中的下一个令牌来学习模式和推理。">A Large Language Model (LLM) is a type of artificial intelligence trained on massive text data. It learns patterns, grammar, facts, and reasoning by predicting the next token in a sequence — billions of times over.</p>
+    <p class="section-desc" data-en="A Large Language Model (LLM) is a type of artificial intelligence trained on massive amounts of text data. It learns patterns, grammar, facts, and reasoning by predicting the next token in a sequence — billions of times over." data-zh="大型语言模型（LLM）是一种在海量文本数据上训练的人工智能，通过预测序列中的下一个令牌来学习模式和推理。">A Large Language Model (LLM) is a type of artificial intelligence trained on massive amounts of text data. It learns patterns, grammar, facts, and reasoning by predicting the next token in a sequence — billions of times over.</p>
     <div class="what-grid">
       <div>
         <div class="cards-grid" style="grid-template-columns:1fr;">
@@ -614,8 +614,11 @@
 </footer>
 
 <script>
-/* ── API Configuration ── Using Next.js API routes */
-const API_BASE = window.location.origin; // Will use Next.js API routes
+/* ── EmailJS ── Replace these 3 values after creating your free EmailJS account at emailjs.com */
+emailjs.init("YOUR_PUBLIC_KEY");           // From EmailJS → Account → Public Key
+const EJS_SERVICE  = "YOUR_SERVICE_ID";   // From EmailJS → Email Services
+const EJS_TEMPLATE = "YOUR_TEMPLATE_ID";  // From EmailJS → Email Templates
+/* Template should have variables: {{to_email}} {{grade}} {{feedback}} {{project}} {{date}} */
 
 /* ── FLOATING TOKENS ── */
 const bg=document.getElementById('tokensBg');
@@ -642,28 +645,27 @@ document.querySelectorAll('.tok').forEach((t,i)=>{
 });
 
 /* ── SEARCH ── */
-/* Using API for search instead of local data */
-async function doSearch(q){
+const sData=[];
+document.querySelectorAll('section').forEach(sec=>{
+  sec.querySelectorAll('h2,h3,p,td').forEach(el=>{
+    const txt=el.textContent.trim();
+    const title=sec.querySelector('h2')?.textContent||'';
+    if(txt.length>20) sData.push({title,text:txt,id:sec.id});
+  });
+});
+function doSearch(q){
   const box=document.getElementById('searchResults');
   if(!q.trim()){box.style.display='none';return;}
-
-  try {
-    const response = await fetch(API_BASE + `/api/search?q=${encodeURIComponent(q)}`);
-    const data = await response.json();
-
-    if(!data.results || data.results.length === 0){
-      box.innerHTML=`<div class="no-results">No results for "${q}"</div>`;
-    } else {
-      box.innerHTML=data.results.map(r=>{
-        return `<div class="search-result-item" onclick="goRes('${r.id}','${encodeURIComponent(r.title)}','${encodeURIComponent(r.snippet)}')"><h4>${r.title}</h4><p>${r.snippet}</p></div>`;
-      }).join('');
-    }
-    box.style.display='block';
-  } catch(err) {
-    console.error('Search error:', err);
-    box.innerHTML=`<div class="no-results">Search error - please try again</div>`;
-    box.style.display='block';
-  }
+  const lo=q.toLowerCase();
+  const res=sData.filter(d=>d.text.toLowerCase().includes(lo)).slice(0,8);
+  if(!res.length){box.innerHTML=`<div class="no-results">No results for "${q}"</div>`;}
+  else box.innerHTML=res.map(r=>{
+    const i=r.text.toLowerCase().indexOf(lo);
+    const snip=r.text.slice(Math.max(0,i-40),i+80);
+    const hl=snip.replace(new RegExp(q,'gi'),m=>`<mark>${m}</mark>`);
+    return `<div class="search-result-item" onclick="goRes('${r.id}','${encodeURIComponent(r.title)}','${encodeURIComponent(r.text.slice(0,300))}')"><h4>${r.title||'Content'}</h4><p>...${hl}...</p></div>`;
+  }).join('');
+  box.style.display='block';
 }
 function goRes(id,t,c){
   document.getElementById('searchResults').style.display='none';
@@ -751,8 +753,9 @@ const QS=[
   {q:"Which architecture is most commonly used in modern LLMs?",o:["Convolutional Neural Network (CNN)","Recurrent Neural Network (RNN)","Transformer","Decision Tree"],a:2},
   {q:"What does the term 'token' refer to in LLMs?",o:["A sentence","A word or subword unit used as input to the model","A paragraph","A dataset"],a:1},
   {q:"What is the main task of an LLM during text generation?",o:["Translating images into text","Predicting the next token based on previous tokens","Storing all text data","Compressing text files"],a:1},
-  {q:"Which mathematical function converts logits into probabilities?",o:["ReLU","Sigmoid","Softmax","Tanh"],a:2},
+  {q:"What mathematical function converts logits into probabilities?",o:["ReLU","Sigmoid","Softmax","Tanh"],a:2},
   {q:"What does the attention mechanism help the model do?",o:["Ignore previous words","Focus on important parts of the input sequence","Reduce dataset size","Remove punctuation"],a:1},
+  {q:"Which equation represents the self-attention mechanism?",o:["y = mx + b","Attention(Q,K,V) = softmax(QKᵀ / √dₖ) V","E = mc²","a² + b² = c²"],a:1},
   {q:"What does 'pre-training' mean in LLM development?",o:["Testing the model before training","Training the model on large datasets before fine-tuning","Deleting unnecessary data","Running the model offline"],a:1},
   {q:"What is fine-tuning in LLMs?",o:["Reducing the size of the model","Training the model on specific task data after pre-training","Deleting weights","Converting tokens to text"],a:1},
   {q:"Which of the following is a well-known LLM?",o:["ResNet","GPT","AlexNet","VGG"],a:1},
@@ -761,7 +764,6 @@ const QS=[
   {q:"Which company developed the GPT models?",o:["Google","Microsoft","OpenAI","Meta"],a:2},
   {q:"What is the main advantage of the Transformer architecture?",o:["Faster training using parallel processing","Smaller dataset requirement","No need for GPUs","No need for tokens"],a:0},
   {q:"Which of the following is an application of LLMs?",o:["Text generation","Question answering","Machine translation","All of the above"],a:3},
-  {q:"What is the role of positional encoding in Transformers?",o:["To encode the position of tokens in the sequence","To reduce the model size","To increase training speed","To remove stop words"],a:0},
 ];
 const LETS=['A','B','C','D'];
 let qi=0,score=0,ans=false;
@@ -852,15 +854,17 @@ function submitGrade(){
   const txt=val>=90?(lang==='zh'?'优秀！':'Excellent!'):val>=75?(lang==='zh'?'良好':'Good work'):val>=60?(lang==='zh'?'及格':'Satisfactory'):(lang==='zh'?'需要改进':'Needs improvement');
   fb.textContent=(lang==='zh'?'正在发送...':'Sending grade to professor...');
 
-  fetch(API_BASE + '/api/grade', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grade: val })
-  }).then(res => res.json()).then(data => {
-    fb.textContent = data.feedback + (data.email_sent ? ' ✅ ' + (lang==='zh'?'已发送至教授邮箱！':'Grade sent to professor!') : ' ✅ ' + (lang==='zh'?'已记录！':'Grade recorded!'));
-  }).catch(err => {
-    console.error('Grade submission error:', err);
-    fb.textContent = txt + ' ⚠️ ' + (lang==='zh'?'提交失败，请重试。':'Submission failed — please try again.');
+  emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+    to_email: "omee914@gmail.com",
+    grade: val,
+    feedback: txt,
+    project: "LLM Universe Website",
+    date: new Date().toLocaleString(),
+  }).then(()=>{
+    fb.textContent=txt+' ✅ '+(lang==='zh'?'已发送至教授邮箱！':'Grade sent to professor email!');
+  }).catch(err=>{
+    console.error('EmailJS:',err);
+    fb.textContent=txt+' ⚠️ '+(lang==='zh'?'邮件发送失败，请检查EmailJS配置。':'Email failed — check EmailJS setup.');
   });
 }
 </script>
